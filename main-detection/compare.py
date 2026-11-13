@@ -82,6 +82,7 @@ def window_metrics(w):
         tp, fp, fn = ((y == 1) & (p == 1)).sum(), ((y == 0) & (p == 1)).sum(), ((y == 1) & (p == 0)).sum()
         rows.append(dict(model=model, direction=direction, seed=seed, scenario=scenario,
                          f1=2 * tp / max(2 * tp + fp + fn, 1) if y.any() else np.nan,
+                         precision=tp / max(tp + fp, 1) if y.any() else np.nan,
                          recall=p[y == 1].mean() if y.any() else np.nan,
                          false_alarm=p[y == 0].mean() if (y == 0).any() else np.nan))
     return pd.DataFrame(rows)
@@ -102,7 +103,9 @@ def main():
     fa = ev[ev.has_before].groupby(['direction', 'scenario', 'model']).false_alarm.mean().rename('false_alarm_events')
     event_summary = det.join(fa, how='outer').round(3)
     event_summary.to_csv(out / 'event_summary.csv')
-    window_summary = win.groupby(['direction', 'scenario', 'model'])[['f1', 'recall', 'false_alarm']].mean().round(3)
+    window_summary = win.groupby(['direction', 'scenario', 'model'])[
+        ['f1', 'precision', 'recall', 'false_alarm']
+    ].mean().round(3)
     window_summary.to_csv(out / 'window_summary.csv')
 
     hyp = []

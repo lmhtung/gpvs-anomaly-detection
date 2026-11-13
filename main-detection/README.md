@@ -63,7 +63,7 @@ Bỏ đoạn có < 1 s dữ liệu sau S. Cohort: mọi cửa sổ 20 ms có tâ
 
 **Chỉ số.**
 - Mức sự kiện (chính) dùng ba cửa sổ 20 ms liên tiếp có xác suất lỗi ≥ 0,5. Độ trễ được đo từ onset, hoặc từ S nếu lỗi đã có sẵn, đến tâm cửa sổ đầu tiên trong chuỗi xác nhận. Hệ thống chỉ có đủ bằng chứng sau khi nhận cả ba cửa sổ. Báo động giả là chuỗi ba cửa sổ nằm hoàn toàn trước onset hoặc xuất hiện trong đoạn khỏe.
-- Mức cửa sổ (phụ): bỏ ±0,5 s quanh onset; F1(fault), recall, tỉ lệ báo động giả.
+- Mức cửa sổ (phụ) báo cáo F1, precision và recall của lớp lỗi, cùng tỷ lệ báo động giả trên cửa sổ khỏe. Loại các cửa sổ có tâm cách onset dưới 0,5 s.
 - Seed 0–4 cho mọi mô hình.
 
 **Giả thuyết và tiêu chí.**
@@ -88,26 +88,38 @@ Các bảng dưới đây dùng kết quả đã lưu cho seed 0–4.
 | IPPT→MPPT | raw | 0,2060 | 0,2155 | −0,0095 |
 | MPPT→IPPT | raw | 0,2620 | 0,3020 | −0,0399 |
 
-**Thí nghiệm nhị phân trên GPU, bản ghi gốc.** Mỗi ô ghi F1 lớp lỗi / tỷ lệ báo động giả trên cửa sổ khỏe.
+**Thí nghiệm nhị phân trên GPU, bản ghi gốc.** Mỗi chỉ số được tính theo từng seed trên cùng tập cửa sổ, sau đó lấy trung bình qua 5 seed. Số **in đậm** đánh dấu kết quả tốt nhất cho từng chỉ số trong mỗi hướng. Tỷ lệ báo động giả (FPR) càng thấp càng tốt.
 
-| Hướng | E1 | A2 | Repo-Delta |
-|---|---|---|---|
-| L→M | 0,938 / 2,3% | 0,748 / 23,8% | 0,833 / 1,0% |
-| M→L | 0,924 / 2,3% | 0,903 / 1,1% | 0,549 / 29,9% |
+| Hướng | Mô hình | F1 | Precision | Recall | FPR |
+|---|---|---:|---:|---:|---:|
+| L→M | E1 | **0,938** | 0,935 | 0,941 | 2,3% |
+| L→M | A2 | 0,748 | 0,598 | **1,000** | 23,8% |
+| L→M | Repo-Delta | 0,833 | **0,966** | 0,739 | **1,0%** |
+| M→L | E1 | **0,924** | 0,941 | **0,911** | 2,3% |
+| M→L | A2 | 0,903 | **0,973** | 0,846 | **1,1%** |
+| M→L | Repo-Delta | 0,549 | 0,539 | 0,647 | 29,9% |
 
-**Lỗi sớm (onset 0,5–2 s sau S).** Tỷ lệ bỏ sót và độ trễ được gộp qua các đoạn và seed. Độ trễ chỉ tính trên các lần phát hiện. Cột cuối là khoảng tỷ lệ báo động giả giữa bốn thời điểm onset.
+**Lỗi sớm (onset 0,5–2 s sau S).** Tỷ lệ bỏ sót và độ trễ được gộp qua các đoạn và seed. Độ trễ chỉ tính trên các lần phát hiện. Cột cuối là khoảng tỷ lệ báo động giả giữa bốn thời điểm onset. Cả ba chỉ số càng thấp càng tốt.
 
 | Hướng | Mô hình | Bỏ sót | Độ trễ trung vị | Có báo động giả trước onset |
 |---|---|---|---|---|
-| L→M | A2 | 0% | 0,01 s | 33–73% số đoạn |
-| L→M | E1 | 28% | 0,74 s | 0% |
-| L→M | Repo-Delta | 51% | 1,83 s | 0% |
-| M→L | A2 | 0% | 0,22 s | 0–13% |
+| L→M | A2 | **0%** | **0,01 s** | 33–73% số đoạn |
+| L→M | E1 | 28% | 0,74 s | **0%** |
+| L→M | Repo-Delta | 51% | 1,83 s | **0%** |
+| M→L | A2 | **0%** | **0,22 s** | 0–13% |
 | M→L | E1 | 10% | 0,28 s | 0–10% |
-| M→L | Repo-Delta | 41% | 2,01 s | 0% |
+| M→L | Repo-Delta | 41% | 2,01 s | **0%** |
 
-**Lỗi có sẵn khi hệ thống chạy (`faulty_start`), recall cửa sổ:** A2 0,882 / 0,444; E1 0,325 / 0,246;
-Repo-Delta 0,234 / 0,196 (L→M / M→L).
+**Lỗi có sẵn khi hệ thống chạy (`faulty_start`).** Các cửa sổ được chấm đều thuộc lớp lỗi, nên precision bằng 1,000 cho cả ba mô hình. F1 và recall thể hiện khả năng phát hiện trong kịch bản này.
+
+| Hướng | Mô hình | F1 | Precision | Recall |
+|---|---|---:|---:|---:|
+| L→M | E1 | 0,490 | **1,000** | 0,325 |
+| L→M | A2 | **0,937** | **1,000** | **0,882** |
+| L→M | Repo-Delta | 0,378 | **1,000** | 0,234 |
+| M→L | E1 | 0,390 | **1,000** | 0,246 |
+| M→L | A2 | **0,610** | **1,000** | **0,444** |
+| M→L | Repo-Delta | 0,318 | **1,000** | 0,196 |
 
 Ở L→M, cần đọc độ trễ 0,01 s của A2 cùng tỷ lệ báo động giả 33–73%. Ở M→L, A2 phát hiện mọi sự kiện trong các đoạn lỗi sớm, với độ trễ trung vị 0,22 s và tỷ lệ báo động giả 0–13%. Cột `supported` trong `hypotheses.csv` kiểm tra H1 theo độ trễ và tỷ lệ bỏ sót. Tỷ lệ báo động giả được báo cáo riêng trong `event_summary.csv`.
 
