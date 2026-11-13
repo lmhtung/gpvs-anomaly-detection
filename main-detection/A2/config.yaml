@@ -1,0 +1,45 @@
+# A2: E1 + left padding (decides from the first descriptor, 0.04 s after S) + 16 history-free channels
+#     + source-only crop augmentation.
+data_dir: ../../data/CSV_Files                          # relative to this file
+onset_file: ../gpvs-fault-detection/results/onsets.csv
+scenario_file: ../outputs/scenarios.csv
+output_dir: ../outputs/A2
+seeds: [0, 1, 2, 3, 4]
+recordings: [0, 1, 2, 3, 5, 6, 7]                      # F4 has no onset
+sample_rate_hz: 10000
+warmup_seconds: 0.5         # 0-0.5 s is warm-up: never used; the system starts at S = 0.5 s
+startup_seconds: 3.0        # source F0 calibration (bank) uses t >= 3 s only
+start_seconds: 0.52         # first window [0.52, 0.54) s; the descriptor at exactly 0.5 s is lost to float time comparison
+onset_guard_seconds: 0.5    # training / window metrics drop |centre - onset| < 0.5 s
+evaluation_window_samples: 200
+evaluation_stride_samples: 200
+lags: [[1.0, 2.0], [1.0, 4.0], [1.0, 6.0]]             # (h, lag) seconds
+features:
+  descriptor_samples: 200
+  hop_samples: 100
+  sequence_length: 32
+  gaussian_contexts_seconds: [0.2, 0.5, 1.0, 2.0]
+  energy_contexts_seconds: [0.04, 0.08, 0.16]
+  bandwidth_factors: [0.5, 1.0, 2.0]
+  max_reference_points: 512
+  bandwidth_floor: 0.1
+  absolute_floor: 0.01
+  voltage_floor: 0.1
+  relative_floor: 0.001
+  mmd_floor: 0.000001
+  std_floor: 0.1
+  clip: 10.0
+model:
+  hidden_features: 64
+  dropout: 0.1
+train:
+  device: cuda
+  epochs: 60
+  batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.0001
+  feature_dropout: 0.1      # drop a variable's 7 MMD/Energy score channels together (never lag or masks)
+  gradient_clip: 1.0
+augment:
+  crop_seconds: 4.0         # extra SOURCE crops [s, s+4) for s = 1, 2, ... (faults with little or no healthy history)
+  crop_step_seconds: 1.0

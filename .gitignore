@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.DS_Store
+
+# Local dataset and generated experiment artifacts.
+/data/
+CSV_Files/
+CSV_Files.zip
+/outputs/
+/main-detection/outputs/
+/main-detection/scenarios.csv
+
+# External baseline checkout.
+/main-detection/gpvs-fault-detection/

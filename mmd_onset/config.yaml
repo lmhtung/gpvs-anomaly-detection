@@ -1,0 +1,91 @@
+# =============================================================================
+# Cấu hình tìm fault onset bằng MMD 13 kênh trên GPVS-Faults
+# Đường dẫn tương đối được tính từ thư mục gốc của repo.
+# =============================================================================
+method: mmd_onset
+data_dir: data/CSV_Files
+output_dir: outputs  # kết quả ghi vào outputs/mmd_onset/<run_name>/
+run_name: gpvs_13ch                       # trùng tên thì tự thêm _v2, _v3
+recordings: [F0L, F1L, F2L, F3L, F4L, F5L, F6L, F7L,
+             F0M, F1M, F2M, F3M, F4M, F5M, F6M, F7M]
+
+# --- Dữ liệu thô --------------------------------------------------------------
+warmup_seconds: 0.5                 # bỏ 0,5 s đầu (quá độ khởi động)
+gap_factor: 5.0                     # khe thời gian > 5 × dt trung vị thì tách phân đoạn mới
+channels: [Ipv, Vpv, Vdc, ia, ib, ic, va, vb, vc, Iabc, If, Vabc, Vf]
+
+# --- Descriptor theo cửa sổ ---------------------------------------------------
+window_seconds: 0.02                # 20 ms = 1 chu kỳ lưới 50 Hz
+hop_seconds: 0.01                   # bước lưới 10 ms (độ phân giải coarse)
+features:
+  dc: [mean, std]                   # Ipv, Vpv, Vdc, Iabc, If, Vabc, Vf
+  ac: [rms, mean]                   # ia..vc: mức RMS và độ lệch trung bình có dấu
+
+# --- Chuẩn hóa theo F0 cùng chế độ: z = (x − median_F0) / max(1,4826·MAD_F0, sàn) ---
+normalization:
+  mad_multiplier: 1.4826
+  absolute_floor:                   # sàn tuyệt đối của scale
+    default: 0.01
+    channels: {Vpv: 0.1, Vdc: 0.1, Vabc: 0.1}
+  relative_floor:                   # sàn tương đối = hệ số × median|x| của tín hiệu F0
+    default: 0.001
+    channels: {}
+
+# --- Ngưỡng: multiplier × max(min_threshold, đỉnh trong mẫu F0, đỉnh ngoài mẫu) ---
+threshold_multiplier: 1.2
+min_threshold: 1.0
+calibration:
+  holdout_halves: true              # fit trên một nửa F0, chấm nửa kia (và ngược lại) để
+                                    # ước lượng mức dữ liệu khỏe mới vượt cực đại trong mẫu.
+
+# --- Nhánh long-context Gaussian MMD (từng kênh) --------------------------------
+kernel:
+  bandwidth_factors: [0.5, 1.0, 2.0]  # trung bình 3 kernel Gaussian, bandwidth = median khoảng cách F0
+  bandwidth_floor: 0.1
+  max_reference_points: 512           # số vector F0 dùng để ước lượng bandwidth
+contexts_seconds: [0.2, 0.5, 1.0, 2.0]  # độ dài mỗi phía của điểm cắt
+min_scales: 2                         # cần ≥ 2 context hợp lệ (gộp bằng trung bình nhân)
+mmd_floor: 1.0e-06                    # chặn dưới khi chia cho cực đại F0
+
+# --- Chọn onset ----------------------------------------------------------------
+onset:
+  search_start_seconds: 0.5
+  search_end_margin_seconds: 0.0
+  # Nhánh short-context Energy MMD (bắt chuyển tiếp nhanh)
+  short_contexts_seconds: [0.04, 0.08, 0.16]
+  short_min_scales: 2
+  strong_peak_ratio: 6.0            # sự kiện mạnh: score / ngưỡng ≥ 6
+  confirmation_ratio: 1.2           # và 2 context ngắn nhất cùng kênh đều ≥ 1,2
+  min_prominence_ratio: 1.0         # độ nổi tối thiểu của đỉnh
+  prominence_fraction: 0.2          # độ nổi ≥ 20 % chiều cao đỉnh
+  min_peak_separation_seconds: 0.05 # khoảng cách tối thiểu giữa hai đỉnh (áp sau lọc độ nổi)
+  # Nhánh long Gaussian: đỉnh của sườn trôi chậm bị trễ, nên lùi về mép sớm
+  early_fraction: 0.95              # lùi khi điểm còn ≥ 95 % đỉnh
+  max_early_seconds: 0.05           # tối đa 50 ms
+
+# --- Nhánh joint Gaussian MMD (26 descriptor) – chỉ chạy khi bằng chứng cục bộ yếu ---
+joint_confirmation:
+  max_local_ratio: 2.0              # long ratio ≥ 2 hoặc có sự kiện Energy mạnh thì không cần joint
+  contexts_seconds: [0.5, 1.0, 2.0]
+  min_scales: 3
+  min_confirming_contexts: 2        # chấp nhận khi ≥ 2 context có ratio > context_ratio
+  context_ratio: 1.0
+
+# --- Tinh chỉnh onset tới từng mẫu cho sự kiện nhanh (nhánh Energy) ---------------
+# Mean shift hai đoạn trên năng lượng phần dư chu kỳ x[k] − x[k−P], P = fs / grid_frequency.
+# Sự kiện trôi chậm (long Gaussian, joint) giữ điểm lưới 10 ms.
+refinement:
+  enabled: true
+  grid_frequency_hz: 50.0
+  residual_clip: 100.0              # chặn (d/scale)² từng kênh để một kênh bão hòa không áp đảo
+  min_side_seconds: 0.002           # mỗi phía của điểm cắt ≥ 2 ms
+
+# --- Hình vẽ -------------------------------------------------------------------
+plot:
+  reference_alpha: 1.0
+  target_alpha: 0.65
+  linewidth: 0.7
+  figsize: [15.0, 18.0]
+  dpi: 190
+  max_points_per_channel: 12000     # 0 = vẽ đủ mọi điểm
+  save_score_figures: false         # true: vẽ thêm đường điểm số của từng nhánh
